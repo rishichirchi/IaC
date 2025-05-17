@@ -1,162 +1,136 @@
-provider "aws"{
-    region = var.aws_region
+provider "aws" {
+  region = var.aws_region
 }
 
-variable "aws_region"{
-    description = "The AWS region to deploy resources into."
-    type = string
-    default = "us-east-1"
+variable "aws_region" {
+  description = "The AWS region to deploy resources into."
+  type        = string
+  default     = "us-east-1"
 }
 
-variable "instance_type"{
-    description = "The EC2 instance type."
-    type = string
-    default = "t2.micro"
+variable "instance_type" {
+  description = "The EC2 instance type."
+  type        = string
+  default     = "t2.micro"
 }
 
-variable "ami_id"{
-    description = "The AMI ID for the EC2 instance."
-    type = string
-    default = "ami-0953476d60561c955"
+variable "ami_id" {
+  description = "The AMI ID for the EC2 instance."
+  type        = string
+  default     = "ami-0abcdef1234567890"
 }
 
-variable "user_name"{
-    description = "The name for the IAM user."
-    type = string
-    default = "terraform-user"
+variable "user_name" {
+  description = "The name for the IAM user."
+  type        = string
+  default     = "insecure-terraform-user"
 }
 
 variable "bucket_name_prefix" {
-    description = "A unique prefix for the S3 bucket name."
-    type        = string
-    default     = "new-bucket-sekiro" # S3 bucket names must be globally unique
-}
-
-variable "queue_name" {
-    description = "The name for the SQS queue."
-    type        = string
-    default     = "terraform-queue"
-}
-
-# --- Resource Definitions ---
-
-# 1. AWS IAM User (THIS BLOCK WAS MISSING)
-resource "aws_iam_user" "example_user" { # Logical name is 'example_user'
-    name = var.user_name
-    tags = {
-        Environment = "Development"
-        ManagedBy   = "Terraform"
-    }
+  description = "A unique prefix for the S3 bucket name."
+  type        = string
+  default     = "public-insecure-bucket"
 }
 
 
-# 2. AWS Security Group for EC2 (allowing SSH)
-resource "aws_security_group" "new_sg"{ # Logical name is 'new_sg'
-    name = "allow_ssh" # The actual name in AWS Console will be 'allow_ssh'
-    description = "Allow SSH inbound traffic"
-
-    ingress {
-        description = "SSH from anywhere"
-        from_port   = 22
-        to_port     = 22
-        protocol    = "tcp"
-        cidr_blocks = ["0.0.0.0/0"] # WARNING: Allowing SSH from anywhere is not recommended for production
-    }
-
-    egress {
-        from_port   = 0
-        to_port     = 0
-        protocol    = "-1"
-        cidr_blocks = ["0.0.0.0/0"]
-    }
-
-    tags = {
-        Name = "example-security-group"
-    }
-}
-
-# 3. AWS EC2 Instance
-resource "aws_instance" "new_instance" { # Logical name is 'new_instance'
-    ami           = var.ami_id
-    instance_type = var.instance_type
-    # CORRECTED: Referencing the correct security group logical name
-    vpc_security_group_ids = [aws_security_group.new_sg.id]
-
-    tags = {
-        Name = "ExampleTerraformInstance"
-        ManagedBy = "Terraform"
-    }
-
-    # IMPORTANT: Ensure 'my-key-pair' exists in the specified region
-    key_name = "my-key-pair"
-}
-
-# 4. AWS S3 Bucket
-resource "aws_s3_bucket" "example_bucket" { # Logical name is 'example_bucket'
-    # Bucket names must be globally unique and follow DNS naming conventions.
-    # Using a prefix and random string helps ensure uniqueness.
-    bucket_prefix = var.bucket_name_prefix
-
-    tags = {
-        Name = "MyExampleTerraformBucket"
-        ManagedBy = "Terraform"
-    }
-}
-
-resource "aws_s3_bucket" "another_bucket" { # Logical name is 'another_bucket'
-    # Use a different unique prefix
-    bucket_prefix = "another-test-bucket" # Ensure this prefix is unique globally
-
-    tags = {
-        Name = "AnotherTestBucket"
-        ManagedBy = "Terraform-CI-CD"
-    }
-}
-
-# 5. AWS SQS Queue (Example of an event resource - Optional, add back if needed)
-/*
-resource "aws_sqs_queue" "example_queue" {
-  name                      = var.queue_name
-  delay_seconds             = 0
-  max_message_size          = 262144 # 256 KB
-  message_retention_seconds = 345600 # 4 days
-  receive_wait_time_seconds = 10
-
+resource "aws_iam_user" "insecure_user" {
+  name = var.user_name
   tags = {
-    Environment = "Development"
+    Environment = "InsecureTest"
     ManagedBy   = "Terraform"
   }
 }
-*/
 
+resource "aws_iam_user_policy" "insecure_user_policy" {
+  name = "insecure-broad-access"
+  user = aws_iam_user.insecure_user.name
 
-# --- Outputs ---
-
-# Output the IAM user name
-output "iam_user_name" {
-    description = "The name of the created IAM user."
-    # CORRECTED: Referencing the correct IAM user logical name
-    value       = aws_iam_user.example_user.name
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "ec2:*",
+          "s3:*",
+          "iam:*"
+        ],
+        Resource = "*"
+      },
+    ]
+  })
 }
 
-# Output the EC2 instance public IP (if applicable and associated)
-output "ec2_public_ip" {
-    description = "The public IP address of the EC2 instance."
-    # CORRECTED: Referencing the correct EC2 instance logical name
-    value       = aws_instance.new_instance.public_ip
+
+resource "aws_security_group" "insecure_sg" {
+  name        = "ssh_open_to_world"
+  description = "Allow SSH inbound traffic from anywhere - VULNERABLE"
+
+  ingress {
+    description = "SSH from anywhere - VULNERABLE"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "insecure-security-group"
+  }
 }
 
-# Output the S3 bucket name
-output "s3_bucket_name" {
-    description = "The name of the created S3 bucket."
-    # CORRECTED: Referencing the correct S3 bucket logical name
-    value       = aws_s3_bucket.example_bucket.id
+resource "aws_instance" "insecure_instance" {
+  ami           = var.ami_id
+  instance_type = var.instance_type
+  vpc_security_group_ids = [aws_security_group.insecure_sg.id]
+
+  tags = {
+    Name = "InsecureTerraformInstance"
+    ManagedBy = "Terraform"
+  }
+
+  key_name = "my-key-pair"
 }
 
-# Output the SQS queue URL (if you added the SQS resource back)
-/*
-output "sqs_queue_url" {
-  description = "The URL of the created SQS queue."
-  value       = aws_sqs_queue.example_queue.url
+resource "aws_s3_bucket" "public_bucket" {
+  bucket_prefix = var.bucket_name_prefix
+
+  acl = "public-read"
+
+  tags = {
+    Name = "MyPublicInsecureBucket"
+    ManagedBy = "Terraform"
+  }
 }
-*/
+
+resource "aws_s3_bucket_public_access_block" "public_bucket_pab" {
+  bucket = aws_s3_bucket.public_bucket.id
+
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
+}
+
+
+output "insecure_iam_user_name" {
+  description = "The name of the created insecure IAM user."
+  value       = aws_iam_user.insecure_user.name
+}
+
+output "insecure_ec2_public_ip" {
+  description = "The public IP address of the insecure EC2 instance."
+  value       = aws_instance.insecure_instance.public_ip
+}
+
+output "public_s3_bucket_name" {
+  description = "The name of the created public S3 bucket."
+  value       = aws_s3_bucket.public_bucket.id
+}
