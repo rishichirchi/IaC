@@ -17,7 +17,7 @@ variable "instance_type"{
 variable "ami_id"{
     description = "The AMI ID for the EC2 instance."
     type = string
-    default = "ami-0953476d60561c955" # Make sure this AMI ID is valid for your chosen region!
+    default = "ami-0953476d60561c955"
 }
 
 variable "user_name"{
@@ -100,6 +100,16 @@ resource "aws_s3_bucket" "example_bucket" { # Logical name is 'example_bucket'
     tags = {
         Name = "MyExampleTerraformBucket"
         ManagedBy = "Terraform"
+    }
+}
+
+resource "aws_s3_bucket" "another_bucket" { # Logical name is 'another_bucket'
+    # Use a different unique prefix
+    bucket_prefix = "another-test-bucket" # Ensure this prefix is unique globally
+
+    tags = {
+        Name = "AnotherTestBucket"
+        ManagedBy = "Terraform-CI-CD"
     }
 }
 
