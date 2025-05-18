@@ -45,13 +45,13 @@ resource "aws_iam_user_policy" "insecure_user_policy" {
   user = aws_iam_user.insecure_user.name
 
   policy = jsonencode({
-    Version = "2012-10-17",
+    Version = "2012-10-17"
     Statement = [
       {
         Effect = "Allow",
         Action = [
           "ec2:Describe*",
-          "s3:ListBucket",
+          "s3:GetObject",
           "iam:GetUser"
         ],
         Resource = "*"
@@ -65,11 +65,11 @@ resource "aws_security_group" "insecure_sg" {
   description = "Allow SSH inbound traffic from specific IPs"
 
   ingress {
-    description = "SSH from specific IPs"
+    description = "SSH from trusted IPs"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["192.168.1.0/24"]  # Example IP range
+    cidr_blocks = ["192.168.1.0/24"]
   }
 
   egress {
@@ -80,7 +80,7 @@ resource "aws_security_group" "insecure_sg" {
   }
 
   tags = {
-    Name = "restricted-security-group"
+    Name = "secure-security-group"
   }
 }
 
@@ -118,16 +118,16 @@ resource "aws_s3_bucket_public_access_block" "public_bucket_pab" {
 }
 
 output "insecure_iam_user_name" {
-  description = "The name of the created IAM user."
+  description = "The name of the created secure IAM user."
   value       = aws_iam_user.insecure_user.name
 }
 
 output "insecure_ec2_public_ip" {
-  description = "The public IP address of the EC2 instance."
+  description = "The public IP address of the secure EC2 instance."
   value       = aws_instance.insecure_instance.public_ip
 }
 
 output "public_s3_bucket_name" {
-  description = "The name of the created S3 bucket."
+  description = "The name of the created secure S3 bucket."
   value       = aws_s3_bucket.public_bucket.id
 }
