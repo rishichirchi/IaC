@@ -7,7 +7,7 @@ variable "aws_region" {
   type        = string
   default     = "us-east-1"
 }
-#skibbidi
+
 variable "instance_type" {
   description = "The EC2 instance type."
   type        = string
@@ -32,7 +32,6 @@ variable "bucket_name_prefix" {
   default     = "public-insecure-bucket"
 }
 
-
 resource "aws_iam_user" "insecure_user" {
   name = var.user_name
   tags = {
@@ -42,18 +41,18 @@ resource "aws_iam_user" "insecure_user" {
 }
 
 resource "aws_iam_user_policy" "insecure_user_policy" {
-  name = "insecure-broad-access"
+  name = "restricted-access"
   user = aws_iam_user.insecure_user.name
 
   policy = jsonencode({
-    Version = "2012-10-17"
+    Version = "2012-10-17",
     Statement = [
       {
         Effect = "Allow",
         Action = [
-          "ec2:*",
-          "s3:*",
-          "iam:*"
+          "ec2:Describe*",
+          "s3:ListBucket",
+          "iam:GetUser"
         ],
         Resource = "*"
       },
@@ -61,17 +60,16 @@ resource "aws_iam_user_policy" "insecure_user_policy" {
   })
 }
 
-
 resource "aws_security_group" "insecure_sg" {
-  name        = "ssh_open_to_world"
-  description = "Allow SSH inbound traffic from anywhere - VULNERABLE"
+  name        = "restricted_ssh_access"
+  description = "Allow SSH inbound traffic from specific IPs"
 
   ingress {
-    description = "SSH from anywhere - VULNERABLE"
+    description = "SSH from specific IPs"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["192.168.1.0/24"]  # Example IP range
   }
 
   egress {
@@ -82,7 +80,7 @@ resource "aws_security_group" "insecure_sg" {
   }
 
   tags = {
-    Name = "insecure-security-group"
+    Name = "restricted-security-group"
   }
 }
 
@@ -92,7 +90,7 @@ resource "aws_instance" "insecure_instance" {
   vpc_security_group_ids = [aws_security_group.insecure_sg.id]
 
   tags = {
-    Name = "InsecureTerraformInstance"
+    Name = "SecureTerraformInstance"
     ManagedBy = "Terraform"
   }
 
@@ -102,10 +100,10 @@ resource "aws_instance" "insecure_instance" {
 resource "aws_s3_bucket" "public_bucket" {
   bucket_prefix = var.bucket_name_prefix
 
-  acl = "public-read"
+  acl = "private"
 
   tags = {
-    Name = "MyPublicInsecureBucket"
+    Name = "MySecureBucket"
     ManagedBy = "Terraform"
   }
 }
@@ -113,24 +111,23 @@ resource "aws_s3_bucket" "public_bucket" {
 resource "aws_s3_bucket_public_access_block" "public_bucket_pab" {
   bucket = aws_s3_bucket.public_bucket.id
 
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
-
 output "insecure_iam_user_name" {
-  description = "The name of the created insecure IAM user."
+  description = "The name of the created IAM user."
   value       = aws_iam_user.insecure_user.name
 }
 
 output "insecure_ec2_public_ip" {
-  description = "The public IP address of the insecure EC2 instance."
+  description = "The public IP address of the EC2 instance."
   value       = aws_instance.insecure_instance.public_ip
 }
 
 output "public_s3_bucket_name" {
-  description = "The name of the created public S3 bucket."
+  description = "The name of the created S3 bucket."
   value       = aws_s3_bucket.public_bucket.id
 }
