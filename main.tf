@@ -7,7 +7,7 @@ variable "aws_region" {
   type        = string
   default     = "us-east-1"
 }
-
+#skibbidi
 variable "instance_type" {
   description = "The EC2 instance type."
   type        = string
